@@ -1,0 +1,77 @@
+# An unique identifier for the head node and workers of this cluster.
+cluster_name: xwjiang-test
+# The maximum number of workers nodes to launch in addition to the head
+# node. This takes precedence over min_workers. min_workers default to 0.
+min_workers: 3
+initial_workers: 3
+max_workers: 3
+# autoscaling_mode: aggressive
+# target_utilization_fraction: 0.9
+# If a node is idle for this many minutes, it will be removed.
+idle_timeout_minutes: 15
+docker:
+    image: "rayproject/ray:1.4.0-cpu" # You can change this to latest-cpu if you don't need GPU support and want a faster startup
+    container_name: "ray_container"
+    # If true, pulls latest version of image. Otherwise, `docker run` will only pull the image
+    # if no cached version is present.
+    pull_before_run: True
+    run_options: []  # Extra options to pass into "docker run"
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+    region: us-west-2
+    availability_zone: us-west-2a
+    cache_stopped_nodes: False
+# How Ray will authenticate with newly launched nodes.
+auth:
+    ssh_user: ubuntu
+    ssh_private_key: ~/Documents/xwjiang-test.pem
+head_node:
+    InstanceType: m5ad.8xlarge
+    ImageId: latest_dlami
+    KeyName: xwjiang-test
+    # InstanceMarketOptions:
+    #     MarketType: spot
+           # SpotOptions:
+           #     MaxPrice: "9.0"
+worker_nodes:
+    InstanceType: g4dn.12xlarge 
+    ImageId: latest_dlami
+    KeyName: xwjiang-test
+    # # Run workers on spot by default. Comment this out to use on-demand.
+    # InstanceMarketOptions:
+    #     MarketType: spot
+        # SpotOptions:
+        #     MaxPrice: "9.0"
+file_mounts: {
+    /root/tune/: /Users/xwjiang/ray/python/ray/tune/,
+    /root/autoscaler/: /Users/xwjiang/ray/python/ray/autoscaler/,
+    # "~/koch": "."
+}
+initialization_commands: []
+setup_commands:
+  - pip install -U -q boto3
+  # - pip install -U ray==1.4.0 # https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-2.0.0.dev0-cp37-cp37m-manylinux2014_x86_64.whl
+  # - pip install -q ipdb ray[rllib] #torch torchvision
+  # - rm -rf  /root/anaconda3/lib/python3.7/site-packages/ray/tune
+  # - rm -rf  /root/anaconda3/lib/python3.7/site-packages/ray/autoscaler
+  # - cp -r /root/tune/  /root/anaconda3/lib/python3.7/site-packages/ray/tune
+  # - cp -r /root/autoscaler/  /root/anaconda3/lib/python3.7/site-packages/ray/autoscaler
+  # - apt update && apt-get install -y libglib2.0-0 libgl1-mesa-glx
+  # - pip install -U tensorflow
+  - sudo apt update && sudo apt install -y build-essential
+  - pip install statsmodels tqdm convertdate "pystan<3" fbprophet sklearn
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands: []
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands: []
+# # Command to start ray on the head node. You don't need to change this.
+head_start_ray_commands:
+    - ray stop
+    - ray stop --force
+    -  ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml --object-store-memory=10000000000
+# Command to start ray on worker nodes. You don't need to change this.
+worker_start_ray_commands:
+    - ray stop
+    - ray stop --force
+    -  ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076 --object-store-memory=10000000000
